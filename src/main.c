@@ -95,18 +95,30 @@ void remove_char(Line *line, Buffer *buffer) {
     }
 }
 
+void update_camera(Camera2D *camera, float targetX, float targetY, float lerpSpeed) {
+    camera->target.x = Lerp(camera->target.x, targetX, lerpSpeed); 
+    camera->target.y = Lerp(camera->target.y, targetY, lerpSpeed); 
+}
 
 int main(){
     SetConfigFlags(FLAG_WINDOW_RESIZABLE);
     InitWindow(800, 600, "Notepad");
     SetTargetFPS(60);
-    
+    Camera2D camera = {0};
+    camera.target = (Vector2) {line_cursor*FONT_SIZE, buffer_cursor*FONT_SIZE};
+    camera.offset = (Vector2) {GetScreenWidth() / 2.f, (GetScreenHeight() / 2.f)-FONT_SIZE};
+    camera.zoom = 1.f;
     TraceLog(LOG_INFO, GetWorkingDirectory());
     Font font = LoadFontEx("resources/AnonymousPro-Regular.ttf", FONT_SIZE, 0, 888);
 
     while (!WindowShouldClose()) {
+        
+        update_camera(&camera, line_cursor*FONT_SIZE/2.f, buffer_cursor*FONT_SIZE, .05);
+        camera.offset = (Vector2) {GetScreenWidth() / 2.f, (GetScreenHeight() / 2.f)-FONT_SIZE};
+
         BeginDrawing();
         ClearBackground(BLACK);
+        BeginMode2D(camera);
         bool shift_down = IsKeyDown(KEY_LEFT_SHIFT);
         int key = GetKeyPressed();
         if (key){
@@ -206,7 +218,8 @@ int main(){
             }
         }
         display_text(font);
-        draw_cursor();    
+        draw_cursor(); 
+        EndMode2D();
         EndDrawing();
     }
 
