@@ -13,4 +13,4 @@ Simple Raylib Notepad. Mostly **C** and **Raylib** practice
 - Scrolling with mouse wheel
 - Camera
 - Loading files
-- ~~Saving file~~
+- Saving file
