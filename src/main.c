@@ -1,16 +1,22 @@
 #include <raylib.h>
 #include <raymath.h>
 #include <stdlib.h>
+#include <stdio.h>
 #include <string.h>
 
 #define LINE_SIZE       1024
 #define BUFFER_SIZE     1024
-#define FONT_SIZE       48
+#define FONT_SIZE       144
 #define FONT_SPACING    (int) -(FONT_SIZE/2) 
 
 typedef struct {
+    int key;
+    Color color;
+} Letter;
+
+typedef struct {
     int size;
-    int buffer[LINE_SIZE];
+    Letter *buffer[LINE_SIZE];
 } Line;
 
 typedef struct {
@@ -31,23 +37,23 @@ void trace_line(Line *line) {
 
 void write_before_cursor(Line *line, int key){
     if (line_cursor < LINE_SIZE) {
-        TraceLog(LOG_INFO, TextFormat("key -> %d", key));
+        // TraceLog(LOG_INFO, TextFormat("key -> %d", key));
 
         
     if (line_cursor < line->size) {
         memmove(&line->buffer[line_cursor + 1], 
                 &line->buffer[line_cursor],     
-                (line->size - line_cursor) * sizeof(int)); 
-        }
+                (line->size - line_cursor) * sizeof(Letter)); 
+    }
 
-        
-    line->buffer[line_cursor] = key;
-
+    line->buffer[line_cursor] = malloc(sizeof(Letter));     
+    *line->buffer[line_cursor] = (Letter) {key, (Color) {GetRandomValue(120, 240), GetRandomValue(120, 240), GetRandomValue(120, 240), 255}};
+    
     
     line_cursor++;
     line->size++;
 
-    trace_line(line); 
+    // trace_line(line); 
     }
 }
 
@@ -55,7 +61,7 @@ void display_text(Font font){
     Vector2 pen = {0};
     for (int line = 0; line < buffer.size; line++){
         for (int chr = 0; chr < buffer.buffer[line]->size; chr++){
-            DrawTextEx(font, TextFormat("%c", buffer.buffer[line]->buffer[chr]), pen, FONT_SIZE, FONT_SPACING, WHITE); 
+            DrawTextEx(font, TextFormat("%c", buffer.buffer[line]->buffer[chr]->key), pen, FONT_SIZE, FONT_SPACING, WHITE); 
             pen.x += FONT_SIZE + FONT_SPACING;
         }
         pen.x = 0;
@@ -65,27 +71,27 @@ void display_text(Font font){
 
 void draw_cursor(){
     timer++;
-    if (timer < 30) DrawRectangle(line_cursor*(FONT_SIZE + FONT_SPACING), buffer_cursor*(FONT_SIZE), 3, FONT_SIZE, WHITE);
-    else if (timer > 60) timer = 0;
+    if (timer < GetFPS() / 2) DrawRectangle(line_cursor*(FONT_SIZE + FONT_SPACING), buffer_cursor*(FONT_SIZE), 3, FONT_SIZE, WHITE);
+    else if (timer > GetFPS()) timer = 0;
 }
 
 void remove_char(Line *line, Buffer *buffer) {
     if (line->size > 0 && line_cursor > 0) {
         if (line_cursor < line->size) {
-            memmove(&line->buffer[line_cursor - 1], 
-                    &line->buffer[line_cursor], 
-                    (line->size - line_cursor) * sizeof(int));
+            memmove(&line->buffer[line_cursor - 1],
+                    &line->buffer[line_cursor],
+                    (line->size - line_cursor) * sizeof(Letter*));
         }
+        line->buffer[line->size - 1] = 0;
 
         line->size--;
         line_cursor--;
-    } 
-    else if (line->size == 0 && buffer_cursor - 1 >= 0) {
+    } else if (line->size == 0 && buffer_cursor - 1 >= 0) {
         free(buffer->buffer[buffer_cursor]);
 
         if (buffer_cursor < buffer->size - 1) {
-            memmove(&buffer->buffer[buffer_cursor], 
-                    &buffer->buffer[buffer_cursor + 1], 
+            memmove(&buffer->buffer[buffer_cursor],
+                    &buffer->buffer[buffer_cursor + 1],
                     (buffer->size - buffer_cursor - 1) * sizeof(Line *));
         }
 
@@ -95,39 +101,100 @@ void remove_char(Line *line, Buffer *buffer) {
     }
 }
 
-void update_camera(Camera2D *camera, float targetX, float targetY, float lerpSpeed) {
+
+void update_camera(Camera2D *camera, float targetX, float targetY, float lerpSpeed, Line *line) {
     camera->target.x = Lerp(camera->target.x, targetX, lerpSpeed); 
     camera->target.y = Lerp(camera->target.y, targetY, lerpSpeed); 
 }
 
-int main(){
+void stringToChars(char* string, Buffer *buffer) {
+    TraceLog(LOG_INFO, TextFormat("stringToChars -> %d", strlen(string)));
+    for (int i = 0; i < strlen(string); i++) {
+        TraceLog(LOG_INFO, TextFormat("%c", string[i]));
+        if (string[i] == '\n') {
+            // TraceLog(LOG_INFO, TextFormat("buffer.size -> %d\nbuffer_cursor -> %d", buffer.size, buffer_cursor));
+
+            buffer->size++;
+
+            if (buffer_cursor < buffer->size - 1) {
+                memmove(&buffer->buffer[buffer_cursor + 1], 
+                        &buffer->buffer[buffer_cursor], 
+                        (buffer->size - buffer_cursor - 1) * sizeof(Line *));
+            }
+
+            buffer_cursor++;
+            line_cursor = 0;
+
+            buffer->buffer[buffer_cursor] = malloc(sizeof(Line));
+            *buffer->buffer[buffer_cursor] = (Line) {0, {0}};
+        }
+        else
+            write_before_cursor(buffer->buffer[buffer_cursor], string[i]);
+    }
+}
+
+void loadFile(char* filename){
+    FILE *file = fopen(filename, "r");
+    char fileContent[LINE_SIZE];
+    if (file == NULL) {
+        return;
+    }
+    fgets(fileContent, LINE_SIZE, file);
+        while (fgets(fileContent, LINE_SIZE, file)) {
+        stringToChars(fileContent, &buffer);
+    }
+
+    fclose(file);  
+    return;
+}
+
+int main(int argc, char* argv[]){
+    // todo: open files
+    char* file = NULL;
+    if (argc >= 1) {
+        file = argv[1];
+    }
+    if (file) {
+        loadFile(file);
+    }
     SetConfigFlags(FLAG_WINDOW_RESIZABLE);
+    //SetConfigFlags(FLAG_VSYNC_HINT);
+    SetConfigFlags(FLAG_MSAA_4X_HINT);
     InitWindow(800, 600, "Notepad");
     SetTargetFPS(60);
     Camera2D camera = {0};
     camera.target = (Vector2) {line_cursor*FONT_SIZE, buffer_cursor*FONT_SIZE};
     camera.offset = (Vector2) {GetScreenWidth() / 2.f, (GetScreenHeight() / 2.f)-FONT_SIZE};
-    camera.zoom = 1.f;
-    TraceLog(LOG_INFO, GetWorkingDirectory());
+    camera.zoom = .25;
+    // TraceLog(LOG_INFO, GetWorkingDirectory());
     Font font = LoadFontEx("resources/AnonymousPro-Regular.ttf", FONT_SIZE, 0, 888);
-
+    SetTextureFilter(font.texture, TEXTURE_FILTER_TRILINEAR);
+    
     while (!WindowShouldClose()) {
         
-        update_camera(&camera, line_cursor*FONT_SIZE/2.f, buffer_cursor*FONT_SIZE, .05);
-        camera.offset = (Vector2) {GetScreenWidth() / 2.f, (GetScreenHeight() / 2.f)-FONT_SIZE};
+        update_camera(&camera, line_cursor*FONT_SIZE/2.f, buffer_cursor - FONT_SIZE*2, .05, buffer.buffer[buffer_cursor]);
+        camera.offset = (Vector2) {GetScreenWidth() / 2.f, (GetScreenHeight() / 2.f)-FONT_SIZE*2};
 
         BeginDrawing();
         ClearBackground(BLACK);
         BeginMode2D(camera);
         bool shift_down = IsKeyDown(KEY_LEFT_SHIFT);
         int key = GetKeyPressed();
+        int mwheel = GetMouseWheelMove();
+        if (mwheel) {
+            if (mwheel < 0) {
+                if (buffer_cursor < buffer.size - 1) buffer_cursor += 1;
+                if (buffer.buffer[buffer_cursor]->size < line_cursor) line_cursor = buffer.buffer[buffer_cursor]->size;
+            }
+            else {
+                if (buffer_cursor > 0) buffer_cursor -= 1;
+                if (buffer.buffer[buffer_cursor]->size < line_cursor) line_cursor = buffer.buffer[buffer_cursor]->size;
+            }
+        }
+        if (IsKeyPressed(KEY_BACKSPACE)) remove_char(buffer.buffer[buffer_cursor], &buffer);
         if (key){
-            TraceLog(LOG_INFO, TextFormat("%d", key));
-            if(key == KEY_BACKSPACE)
-                remove_char(buffer.buffer[buffer_cursor], &buffer);
-            else if (key == KEY_ENTER) {
-                TraceLog(LOG_INFO, TextFormat("buffer.size -> %d\nbuffer_cursor -> %d", buffer.size, buffer_cursor));
-
+            // TraceLog(LOG_INFO, TextFormat("%d", key));
+            if (key == KEY_ENTER) {
                 buffer.size++;
 
                 if (buffer_cursor < buffer.size - 1) {
@@ -142,7 +209,7 @@ int main(){
                 buffer.buffer[buffer_cursor] = malloc(sizeof(Line));
                 *buffer.buffer[buffer_cursor] = (Line) {0, {0}};
 
-                TraceLog(LOG_INFO, TextFormat("buffer.size -> %d\nbuffer_cursor -> %d", buffer.size, buffer_cursor));
+                // TraceLog(LOG_INFO, TextFormat("buffer.size -> %d\nbuffer_cursor -> %d", buffer.size, buffer_cursor));
             }
             else if (key == KEY_TAB) {
                 write_before_cursor(buffer.buffer[buffer_cursor], ' ');
@@ -166,7 +233,7 @@ int main(){
             }
             else {
                 if (shift_down) {
-                    TraceLog(LOG_INFO, TextFormat("shift -> %d", shift_down));
+                    // TraceLog(LOG_INFO, TextFormat("shift -> %d", shift_down));
                     if (key == '1') 
                         write_before_cursor(buffer.buffer[buffer_cursor], '!');
                     else if (key == '2') 
@@ -202,7 +269,7 @@ int main(){
                     else if (key == '.') 
                         write_before_cursor(buffer.buffer[buffer_cursor], '>');
                     else if ((key >= 32 && key < 48) || (key >= 65 && key <= 90)){
-                        TraceLog(LOG_INFO, TextFormat("shift -> %d", shift_down));
+                        // TraceLog(LOG_INFO, TextFormat("shift -> %d", shift_down));
                         write_before_cursor(buffer.buffer[buffer_cursor], key);
                     }
                     else if (key > 90 && key <= 95){
