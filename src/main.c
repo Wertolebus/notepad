@@ -6,8 +6,10 @@
 
 #define LINE_SIZE       1024
 #define BUFFER_SIZE     1024
-#define FONT_SIZE       144
+#define LETTERS_SIZE    1024
+#define FONT_SIZE       24
 #define FONT_SPACING    (int) -(FONT_SIZE/2) 
+#define BG_COLOR        (Color) {34, 35, 46, 255}
 
 typedef struct {
     int key;
@@ -35,19 +37,19 @@ void trace_line(Line *line) {
     }
 }
 
-void write_before_cursor(Line *line, int key){
+void write_before_cursor(Line *line, Letter letter){
     if (line_cursor < LINE_SIZE) {
         // TraceLog(LOG_INFO, TextFormat("key -> %d", key));
 
         
     if (line_cursor < line->size) {
         memmove(&line->buffer[line_cursor + 1], 
-                &line->buffer[line_cursor],     
+                &line->buffer[line_cursor],
                 (line->size - line_cursor) * sizeof(Letter)); 
     }
 
     line->buffer[line_cursor] = malloc(sizeof(Letter));     
-    *line->buffer[line_cursor] = (Letter) {key, (Color) {GetRandomValue(120, 240), GetRandomValue(120, 240), GetRandomValue(120, 240), 255}};
+    *line->buffer[line_cursor] = (Letter) {letter.key, WHITE};
     
     
     line_cursor++;
@@ -61,7 +63,7 @@ void display_text(Font font){
     Vector2 pen = {0};
     for (int line = 0; line < buffer.size; line++){
         for (int chr = 0; chr < buffer.buffer[line]->size; chr++){
-            DrawTextEx(font, TextFormat("%c", buffer.buffer[line]->buffer[chr]->key), pen, FONT_SIZE, FONT_SPACING, WHITE); 
+            DrawTextEx(font, TextFormat("%c", buffer.buffer[line]->buffer[chr]->key), pen, FONT_SIZE, FONT_SPACING, buffer.buffer[line]->buffer[chr]->color); 
             pen.x += FONT_SIZE + FONT_SPACING;
         }
         pen.x = 0;
@@ -107,8 +109,8 @@ void update_camera(Camera2D *camera, float targetX, float targetY, float lerpSpe
     camera->target.y = Lerp(camera->target.y, targetY, lerpSpeed); 
 }
 
-void stringToChars(char* string, Buffer *buffer) {
-    TraceLog(LOG_INFO, TextFormat("stringToChars -> %d", strlen(string)));
+void string_to_chars(char* string, Buffer *buffer) {
+    TraceLog(LOG_INFO, TextFormat("string_to_chars -> %d", strlen(string)));
     for (int i = 0; i < strlen(string); i++) {
         TraceLog(LOG_INFO, TextFormat("%c", string[i]));
         if (string[i] == '\n') {
@@ -128,8 +130,10 @@ void stringToChars(char* string, Buffer *buffer) {
             buffer->buffer[buffer_cursor] = malloc(sizeof(Line));
             *buffer->buffer[buffer_cursor] = (Line) {0, {0}};
         }
-        else
-            write_before_cursor(buffer->buffer[buffer_cursor], string[i]);
+        else {
+            Letter letter = (Letter) {string[i], WHITE};
+            write_before_cursor(buffer->buffer[buffer_cursor], letter);
+        }
     }
 }
 
@@ -141,10 +145,12 @@ void loadFile(char* filename){
     }
     fgets(fileContent, LINE_SIZE, file);
         while (fgets(fileContent, LINE_SIZE, file)) {
-        stringToChars(fileContent, &buffer);
+        string_to_chars(fileContent, &buffer);
     }
 
     fclose(file);  
+    line_cursor = 0;
+    buffer_cursor = 0;
     return;
 }
 
@@ -165,18 +171,17 @@ int main(int argc, char* argv[]){
     Camera2D camera = {0};
     camera.target = (Vector2) {line_cursor*FONT_SIZE, buffer_cursor*FONT_SIZE};
     camera.offset = (Vector2) {GetScreenWidth() / 2.f, (GetScreenHeight() / 2.f)-FONT_SIZE};
-    camera.zoom = .25;
+    camera.zoom = 1.f;
     // TraceLog(LOG_INFO, GetWorkingDirectory());
     Font font = LoadFontEx("resources/AnonymousPro-Regular.ttf", FONT_SIZE, 0, 888);
-    SetTextureFilter(font.texture, TEXTURE_FILTER_TRILINEAR);
     
     while (!WindowShouldClose()) {
         
-        update_camera(&camera, line_cursor*FONT_SIZE/2.f, buffer_cursor - FONT_SIZE*2, .05, buffer.buffer[buffer_cursor]);
+        update_camera(&camera, line_cursor*FONT_SIZE/2.f, buffer_cursor * FONT_SIZE, .05, buffer.buffer[buffer_cursor]);
         camera.offset = (Vector2) {GetScreenWidth() / 2.f, (GetScreenHeight() / 2.f)-FONT_SIZE*2};
 
         BeginDrawing();
-        ClearBackground(BLACK);
+        ClearBackground(BG_COLOR);
         BeginMode2D(camera);
         bool shift_down = IsKeyDown(KEY_LEFT_SHIFT);
         int key = GetKeyPressed();
@@ -212,10 +217,10 @@ int main(int argc, char* argv[]){
                 // TraceLog(LOG_INFO, TextFormat("buffer.size -> %d\nbuffer_cursor -> %d", buffer.size, buffer_cursor));
             }
             else if (key == KEY_TAB) {
-                write_before_cursor(buffer.buffer[buffer_cursor], ' ');
-                write_before_cursor(buffer.buffer[buffer_cursor], ' ');
-                write_before_cursor(buffer.buffer[buffer_cursor], ' ');
-                write_before_cursor(buffer.buffer[buffer_cursor], ' ');
+                write_before_cursor(buffer.buffer[buffer_cursor], (Letter) {' ', WHITE});
+                write_before_cursor(buffer.buffer[buffer_cursor], (Letter) {' ', WHITE});
+                write_before_cursor(buffer.buffer[buffer_cursor], (Letter) {' ', WHITE});
+                write_before_cursor(buffer.buffer[buffer_cursor], (Letter) {' ', WHITE});
             }
             else if(key == KEY_LEFT) {
                 if (line_cursor > 0) line_cursor -= 1;
@@ -235,52 +240,52 @@ int main(int argc, char* argv[]){
                 if (shift_down) {
                     // TraceLog(LOG_INFO, TextFormat("shift -> %d", shift_down));
                     if (key == '1') 
-                        write_before_cursor(buffer.buffer[buffer_cursor], '!');
+                        write_before_cursor(buffer.buffer[buffer_cursor], (Letter) {'!', WHITE});
                     else if (key == '2') 
-                        write_before_cursor(buffer.buffer[buffer_cursor], '@');
+                        write_before_cursor(buffer.buffer[buffer_cursor], (Letter) {'@', WHITE});
                     else if (key == '3') 
-                        write_before_cursor(buffer.buffer[buffer_cursor], '#');
+                        write_before_cursor(buffer.buffer[buffer_cursor], (Letter) {'#', WHITE});
                     else if (key == '4') 
-                        write_before_cursor(buffer.buffer[buffer_cursor], '$');
+                        write_before_cursor(buffer.buffer[buffer_cursor], (Letter) {'$', WHITE});
                     else if (key == '5') 
-                        write_before_cursor(buffer.buffer[buffer_cursor], '%');
+                        write_before_cursor(buffer.buffer[buffer_cursor], (Letter) {'%', WHITE});
                     else if (key == '6') 
-                        write_before_cursor(buffer.buffer[buffer_cursor], '^');
+                        write_before_cursor(buffer.buffer[buffer_cursor], (Letter) {'^', WHITE});
                     else if (key == '7') 
-                        write_before_cursor(buffer.buffer[buffer_cursor], '&');
+                        write_before_cursor(buffer.buffer[buffer_cursor], (Letter) {'&', WHITE});
                     else if (key == '8') 
-                        write_before_cursor(buffer.buffer[buffer_cursor], '*');
+                        write_before_cursor(buffer.buffer[buffer_cursor], (Letter) {'*', WHITE});
                     else if (key == '9') 
-                        write_before_cursor(buffer.buffer[buffer_cursor], '(');
+                        write_before_cursor(buffer.buffer[buffer_cursor], (Letter) {'(', WHITE});
                     else if (key == '0') 
-                        write_before_cursor(buffer.buffer[buffer_cursor], ')');
+                        write_before_cursor(buffer.buffer[buffer_cursor], (Letter) {')', WHITE});
                     else if (key == '=') 
-                        write_before_cursor(buffer.buffer[buffer_cursor], '+');
+                        write_before_cursor(buffer.buffer[buffer_cursor], (Letter) {'+', WHITE});
                     else if (key == '-') 
-                        write_before_cursor(buffer.buffer[buffer_cursor], '_');
+                        write_before_cursor(buffer.buffer[buffer_cursor], (Letter) {'_', WHITE});
                     else if (key == ',') 
-                        write_before_cursor(buffer.buffer[buffer_cursor], '<');
+                        write_before_cursor(buffer.buffer[buffer_cursor], (Letter) {'<', WHITE});
                     else if (key == '/') 
-                        write_before_cursor(buffer.buffer[buffer_cursor], '?');
+                        write_before_cursor(buffer.buffer[buffer_cursor], (Letter) {'?', WHITE});
                     else if (key == ';') 
-                        write_before_cursor(buffer.buffer[buffer_cursor], ':');
+                        write_before_cursor(buffer.buffer[buffer_cursor], (Letter) {':', WHITE});
                     else if (key == '\'') 
-                        write_before_cursor(buffer.buffer[buffer_cursor], '"');
+                        write_before_cursor(buffer.buffer[buffer_cursor], (Letter) {'"', WHITE});
                     else if (key == '.') 
-                        write_before_cursor(buffer.buffer[buffer_cursor], '>');
+                        write_before_cursor(buffer.buffer[buffer_cursor], (Letter) {'>', WHITE});
                     else if ((key >= 32 && key < 48) || (key >= 65 && key <= 90)){
                         // TraceLog(LOG_INFO, TextFormat("shift -> %d", shift_down));
-                        write_before_cursor(buffer.buffer[buffer_cursor], key);
+                        write_before_cursor(buffer.buffer[buffer_cursor], (Letter) {key, WHITE});
                     }
                     else if (key > 90 && key <= 95){
-                        write_before_cursor(buffer.buffer[buffer_cursor], key+32);
+                        write_before_cursor(buffer.buffer[buffer_cursor], (Letter) {key+32, WHITE});
                     }
                 }
                 else {
                     if (key >= 65 && key <= 90)
-                        write_before_cursor(buffer.buffer[buffer_cursor], key+32);
+                        write_before_cursor(buffer.buffer[buffer_cursor], (Letter) {key+32, WHITE});
                     else if ((key >= 32 && key < 65) || (key > 90 && key <= 122)) 
-                        write_before_cursor(buffer.buffer[buffer_cursor], key);
+                        write_before_cursor(buffer.buffer[buffer_cursor], (Letter) {key});
                 }
             }
         }
