@@ -1,4 +1,5 @@
 # PAD - Simple Raylib Notepad
+## TESTED ONLY ON LINUX
 **Description:**
 Simple Raylib Notepad. Mostly **C** and **Raylib** practice
 
