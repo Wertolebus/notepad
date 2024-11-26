@@ -143,8 +143,7 @@ void loadFile(char* filename){
     if (file == NULL) {
         return;
     }
-    fgets(fileContent, LINE_SIZE, file);
-        while (fgets(fileContent, LINE_SIZE, file)) {
+    while (fgets(fileContent, LINE_SIZE, file)) {
         string_to_chars(fileContent, &buffer);
     }
 
@@ -154,8 +153,27 @@ void loadFile(char* filename){
     return;
 }
 
+void saveFile(char* filename){
+    if (!filename) filename = "output.txt";
+    FILE *file = fopen(filename, "w");
+
+    if (!file) {
+        TraceLog(LOG_ERROR, "Failed to open file!");
+    } else {
+        for (int i = 0; i < buffer.size; i++) {
+            for (int j = 0; j < buffer.buffer[i]->size; j++) {
+                fwrite(&buffer.buffer[i]->buffer[j]->key, 1, 1, file);
+            }
+            if (i < buffer.size-1) fwrite(&(char){'\n'}, 1, 1, file);
+        }
+
+        fclose(file);
+    
+        TraceLog(LOG_INFO, "File saved!");
+    }
+}
+
 int main(int argc, char* argv[]){
-    // todo: open files
     char* file = NULL;
     if (argc >= 1) {
         file = argv[1];
@@ -280,8 +298,9 @@ int main(int argc, char* argv[]){
                     else if (key > 90 && key <= 95){
                         write_before_cursor(buffer.buffer[buffer_cursor], (Letter) {key+32, WHITE});
                     }
-                }
-                else {
+                } else if (IsKeyDown(KEY_LEFT_CONTROL) && key == KEY_S) {
+                    saveFile(file);
+                } else {
                     if (key >= 65 && key <= 90)
                         write_before_cursor(buffer.buffer[buffer_cursor], (Letter) {key+32, WHITE});
                     else if ((key >= 32 && key < 65) || (key > 90 && key <= 122)) 
